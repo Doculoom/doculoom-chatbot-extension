@@ -1,0 +1,27 @@
+{
+    "manifest_version": 3,
+    "name": "Dev Chatbot",
+    "version": "1.0",
+    "description": "A simple chatbot Gooogle Chrome extension for Gap Dev Portal",
+    "action": {
+      "default_popup": "popup.html",
+      "default_icon": "assets/images/chatbot-logo.png"
+    },
+    "content_scripts": [
+      {
+        "matches": [
+          "<all_urls>"
+        ],
+        "css": [
+          "assets/css/main.css"
+        ],
+        "js": [
+          "popup.js"
+        ]
+      }
+    ],
+    "permissions": [
+      "activeTab"
+    ]
+  }
+  

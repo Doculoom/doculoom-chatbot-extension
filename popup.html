@@ -2,20 +2,25 @@
 <html>
 <head>
     <title>Chatbot</title>
-    <link  href='assets/css/main.css' rel='stylesheet'>
+    <link href='assets/css/main.css' rel='stylesheet'>
+    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script> -->
+   
 </head>
 <body>
     <div id="chat-container">
         <div class="chat-header">
             <img src="assets/images/gap-logo.png" alt="Logo" class="chat-logo">
             Chatbot » Ask me anything about this page
-          </div>
+        </div>
         <div id="chat-box"></div>
         <div class="chat-input-container">
-        <input type="text" id="chat-input" placeholder="Type your message...">
-        <button id="send-btn">Send</button>
+            <input type="text" id="chat-input" placeholder="Type your message...">
+            <button id="send-btn">Send</button>
+        </div>
     </div>
-    </div>
-    <script src="popup.js"></script>
+    <script type="module" src="popup.js"></script>
+    <script src="crypto-js.min.js"></script>
+
+    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script> -->
 </body>
 </html>

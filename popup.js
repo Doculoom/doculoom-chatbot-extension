@@ -1,17 +1,17 @@
 const sendBtn = document.getElementById('send-btn')
 const inputField = document.getElementById('chat-input')
 const chatBox = document.getElementById('chat-box')
+const chatContainer = document.getElementById('chat-container');
+const spinnerContainer = document.createElement('div');
 
 
 sendBtn.onclick = async function() {
     displayMessage(inputField.value, 'Human');
-    sendQuestionToBackend('sora', inputField.value)
+
+    var lastCheckedURL = localStorage.getItem('lastCheckedURL');
+    sendQuestionToBackend(lastCheckedURL, inputField.value)
     console.log("Recived request: " + inputField.value)
     inputField.value = '';
-
-    // TODO: Remove it later-> it is for just for testing
-     //scrapeAndProcessContent();
-
 }
 
 function getAllHtmlElement(){
@@ -27,7 +27,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
 });
 
-
 document.addEventListener('DOMContentLoaded', function() {
     chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
         let activeTab = tabs[0];
@@ -39,10 +38,18 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         let cleanUrl = activeTabUrl.replace(/\/\//g, '').replace(/[^a-zA-Z0-9]/g, '');
-        var hashedURL = CryptoJS.SHA256(cleanUrl).toString(CryptoJS.enc.Base64);
+        var hashedURL = CryptoJS.SHA256(cleanUrl).toString(CryptoJS.enc.Hex);
+
+        var lastCheckedURL = localStorage.getItem('lastCheckedURL');
+
+
+        if (hashedURL === lastCheckedURL) {
+            console.log('URL has not changed since the last check. Skipping');
+        }else {
+            localStorage.setItem('lastCheckedURL', hashedURL);
+        }
 
         console.log('Current URL:', hashedURL); 
-
         checkIndex(hashedURL).then(data => {
             console.log("Data from checkIndex:", data);
         }).catch(error => {
@@ -53,34 +60,38 @@ document.addEventListener('DOMContentLoaded', function() {
 
 async function checkIndex(urlHash) {
     console.log("Checking index for:", urlHash);
+    let data; 
     try {
+        const response = await fetch(`https://e2e6-172-210-81-173.ngrok-free.app/docs/${urlHash}`);
 
-        const response = await fetch(`https://e2e6-172-210-81-173.ngrok-free.app/${urlHash}`);
-        if (!response.ok) {
-            scrapeAndProcessContent(urlHash);
+        if(!response.ok){
+            const message = "Loading Content from this Page...";
+            chatBox.innerHTML += `<div class="chat-message">${message}</div>`; 
+            await scrapeAndProcessContent(urlHash); 
         }
 
-        const data = await response.json();
-        console.log(data);
-        return data;
+        data = await response.json(); 
+        console.log("Success:", data);
+        const message = "Hello, How can I assist you today?";
+        chatBox.innerHTML += `<div class="chat-message">${message}</div>`; 
+        return data; 
 
     } catch (error) {
         console.error('There was a problem checking the index or processing:', error);
-        return null;
+        return null; 
     }
 }
 
 async function scrapeAndProcessContent(urlHash) {
-
      let [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-
     try {
         let injectionResults = await chrome.scripting.executeScript({
             target: { tabId: tab.id },
-            function: scrapeContentFromPage, //TODO: 
+            function: scrapeContentFromPage 
         });
+
+       console.log('Injection results:', injectionResults);
     
-        // TODO: ADD extractArticles function
         for (const frameResult of injectionResults) {
             console.log('Content found: ', frameResult.result);
             await processDoc(urlHash, frameResult.result);
@@ -91,12 +102,33 @@ async function scrapeAndProcessContent(urlHash) {
 }
 
 function scrapeContentFromPage() {
-  const wordsRegEx = /[A-Z][^.!?]*[.!?]?/g;
+function processContent(content) {
+    let formattedContent = content.trim().replaceAll("  ", " ");
+    return ` ${formattedContent} `;
+}
+function getContentFrom(node) {
+    const list = [node];
+    let content = "";
+    const nodesToBeIgnored = ["SCRIPT", "NOSCRIPT", "STYLE"]; 
+    
+    for (let i = 0; i < list.length; i++) {
+        const currentNode = list[i];
+        if (![1,3].includes(currentNode.nodeType) || 
+            nodesToBeIgnored.includes(currentNode.tagName)) {
+           continue;
+        }
+        if (currentNode.childNodes.length === 0) {
+            content += processContent(currentNode.textContent);
+            continue;
+        }
+        content += Array.from(currentNode.childNodes).map(getContentFrom).join(" ");
+    }
+    return processContent(content);
+};
 
-  let wordList = document.body.innerHTML.match(wordsRegEx);
-  chrome.runtime.sendMessage({ wordList: wordList });
+console.log("Scraping content from page: ", getContentFrom(document.body));
+return getContentFrom(document.body);
 
-  return wordList ? wordList : 'No words found';
 }
 
 async function processDoc(docHash, context) {
@@ -130,14 +162,37 @@ window.addEventListener('unload', function() {
     chatBox.innerText = '';
   });
 
-function displayMessage(text, sender) {
+function displayMessage(text, sender, isProcessing = false) {
+   if (isProcessing) {
+    const spinnerContainer = document.createElement('div');
+    spinnerContainer.classList.add('processing-spinner');
+    spinnerContainer.innerHTML = `<div class="spinner"></div>`;
+    spinnerContainer.style.display = "flex";
+    spinnerContainer.style.alignItems = "center";
+    spinnerContainer.style.justifyContent = "flex-start";
+    chatBox.appendChild(spinnerContainer);
+} else {
     const messageDiv = document.createElement('div');
-    messageDiv.textContent = `${sender}: ${text}`;
+    messageDiv.classList.add('message', sender);
+    messageDiv.innerHTML = text;
     chatBox.appendChild(messageDiv);
+
+    const spinnerContainer = document.querySelector('.processing-spinner');
+    if (spinnerContainer) {
+        spinnerContainer.remove();
+    }
+
+    chatBox.scrollTop = chatContainer.scrollHeight;
+}
 }
 
 function sendQuestionToBackend(urlHash, question) {
     console.log("Sending question to backend:", question);
+
+    displayMessage('', 'ChatBot', true);
+
+    console.log(`Sending chat message for urlHash: ${urlHash} with question: ${question}`)
+
     fetch(`https://e2e6-172-210-81-173.ngrok-free.app/docs/${urlHash}/chat`, {
         method: 'POST',
         headers: {
@@ -153,16 +208,13 @@ function sendQuestionToBackend(urlHash, question) {
     })
     .then(data => {
         console.log('Success:', data);
-        displayMessage(data.response, 'Chatbot');
+        console.log('Received response:', data.response)
+        let formattedText = (data.response).replace(/\n/g, '<br>');
+        displayMessage(formattedText, 'ChatBot', false);
     })
     .catch((error) => {
         console.error('Error:', error);
-        displayMessage('Sorry, there was an error processing your request.', 'Chatbot');
+        displayMessage('Sorry, there was an error processing your request.', 'chatbot',false);
     });
 }
-
-
-
-
-
 

@@ -1,11 +1,11 @@
 {
   "manifest_version": 3,
-  "name": "Dev Chatbot",
+  "name": "Doculoom",
   "version": "1.0",
   "description": "A simple chatbot Google Chrome extension for reading content from a web page and providing chatbot responses.",
   "action": {
     "default_popup": "popup.html",
-    "default_icon": "assets/images/chatbot-logo.png"
+    "default_icon": "assets/images/gap-logo.png"
   },
   "background": {
     "service_worker": "background.js"
